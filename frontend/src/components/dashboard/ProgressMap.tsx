@@ -11,7 +11,7 @@ export default function ProgressMap({ securityLevel }: ProgressMapProps) {
     <div className="bg-white rounded-xl shadow-card p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-display font-bold text-lg">Уровень безопасности</h3>
-        <span className="text-2xl font-bold text-primary">{securityLevel}%</span>
+        <span className="text-2xl font-bold text-primary">{securityLevel} ед.</span>
       </div>
       <div className="relative w-full h-4 bg-gray-100 rounded-full overflow-hidden">
         <motion.div

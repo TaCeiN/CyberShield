@@ -127,9 +127,21 @@ cd frontend && npm run dev
 
 ## РАЗРАБОТЧИКИ
 
-- Крутынх Николай Сергеевич — Backend разработчик — https://t.me/Tachg
+- Крутых Николай Сергеевич — Backend разработчик — https://t.me/Tachg
 - Чекулаев Артем Дмитриевич — Backend разработчик — https://t.me/X790YH161
 - Оганесьянц Роман Павлович — Product Manager — https://t.me/r0man0g
 - Панов Даниил Игорьевич — Frontend разработчик — https://t.me/dAndANnnnnnnnnnnmn
 - Потапов Ярослав Михайлович — Frontend разработчик — https://t.me/yarkex
+
+## Демонстрация
+
+
+
+
+https://github.com/user-attachments/assets/23f63cfc-0835-44d3-8573-b31926ec1687
+
+
+https://github.com/user-attachments/assets/3e238758-43d8-4d3d-881c-da6d62e676da
+
+
 

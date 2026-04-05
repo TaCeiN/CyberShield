@@ -20,6 +20,7 @@ import {
   IconTrophy,
   IconGraduate,
 } from '@/components/icons/Icons';
+import Certificate from '@/components/certificate/Certificate';
 
 interface ThemeProgress {
   id: string;
@@ -157,7 +158,7 @@ export default function DashboardPage() {
                         : 'text-accent-error'
                     }`}
                   >
-                    {securityLevel}%
+                    {securityLevel} ед.
                   </span>
                 </div>
                 <div className="relative w-full h-4 bg-gray-100 rounded-full overflow-hidden">
@@ -299,23 +300,16 @@ export default function DashboardPage() {
                     Мой сертификат
                   </h3>
                   {completedModules >= totalModules ? (
-                    <div className="border-2 border-primary rounded-lg p-6 text-center bg-primary-bg">
-                      <div className="flex justify-center mb-3">
-                        <IconTrophy size={48} className="text-primary" />
-                      </div>
-                      <p className="font-display font-bold text-lg text-primary">
-                        Сертификат CyberShield
-                      </p>
-                      <p className="text-text-secondary text-sm mt-2">
-                        Выдан: {user.display_name || user.username}
-                      </p>
-                      <p className="text-text-secondary text-sm">
-                        Все {totalModules} модулей успешно пройдены!
-                      </p>
-                      <p className="text-primary font-semibold mt-2">
-                        Точность: {accuracy}% | {stats?.total_xp} XP
-                      </p>
-                    </div>
+                    <Certificate
+                      displayName={user.display_name || user.username}
+                      username={user.username}
+                      totalXp={stats?.total_xp ?? 0}
+                      league={user.current_league}
+                      accuracy={accuracy}
+                      securityLevel={securityLevel}
+                      completedModules={completedModules}
+                      totalModules={totalModules}
+                    />
                   ) : (
                     <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                       <div className="flex justify-center mb-3 opacity-30">
