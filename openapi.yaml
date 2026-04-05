@@ -1,0 +1,1446 @@
+openapi: 3.0.3
+info:
+  title: CyberShield API
+  description: API для образовательного симулятора кибербезопасности. Платформа обучает пользователей основам кибербезопасности через интерактивные сценарии, миссии и систему геймификации.
+  version: 1.0.0
+  contact:
+    name: CyberShield Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.cybershield.example.com
+    description: Production server
+
+tags:
+  - name: Auth
+    description: Аутентификация и управление профилем пользователя
+  - name: Scenarios
+    description: Учебные сценарии кибербезопасности
+  - name: Missions
+    description: Миссии и прохождение сценариев
+  - name: Progress
+    description: Прогресс и статистика пользователя
+  - name: Leaderboard
+    description: Таблица лидеров и лиги
+  - name: Achievements
+    description: Система достижений
+  - name: Learning
+    description: Обучающие модули и теория
+  - name: WebSocket
+    description: WebSocket для игрового таймера
+
+paths:
+  /health:
+    get:
+      summary: Проверка здоровья сервера
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Сервер работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/health:
+    get:
+      summary: Проверка здоровья API
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/register:
+    post:
+      summary: Регистрация нового пользователя
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '200':
+          description: Успешная регистрация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400':
+          description: Ошибка валидации или пользователь уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPError'
+
+  /api/auth/login:
+    post:
+      summary: Вход в систему
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPError'
+
+  /api/auth/refresh:
+    post:
+      summary: Обновление access-токена
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+      responses:
+        '200':
+          description: Токены обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: Недействительный или отозванный refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPError'
+
+  /api/auth/me:
+    get:
+      summary: Получение данных профиля
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Неавторизован
+    put:
+      summary: Обновление профиля
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/auth/logout:
+    post:
+      summary: Выход из системы (отзыв refresh token)
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Вы вышли из системы
+
+  /api/scenarios/:
+    get:
+      summary: Список всех сценариев
+      tags:
+        - Scenarios
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список сценариев с прогрессом
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScenarioListItem'
+
+  /api/scenarios/{slug}:
+    get:
+      summary: Детали сценария с миссиями
+      tags:
+        - Scenarios
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Уникальный slug сценария
+      responses:
+        '200':
+          description: Детали сценария
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioResponse'
+        '404':
+          description: Сценарий не найден
+
+  /api/missions/{mission_id}:
+    get:
+      summary: Получение миссии с шагами и вариантами ответов
+      tags:
+        - Missions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID миссии
+      responses:
+        '200':
+          description: Детали миссии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDetail'
+        '404':
+          description: Миссия не найдена
+
+  /api/missions/{mission_id}/start:
+    post:
+      summary: Начало миссии
+      tags:
+        - Missions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Миссия начата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionStartResponse'
+        '404':
+          description: Миссия не найдена
+
+  /api/missions/{mission_id}/answer:
+    post:
+      summary: Отправка ответа на шаг миссии
+      tags:
+        - Missions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+      responses:
+        '200':
+          description: Результат ответа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResponse'
+        '400':
+          description: Ошибка валидации
+
+  /api/missions/{mission_id}/complete:
+    post:
+      summary: Завершение миссии
+      tags:
+        - Missions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Результаты завершения миссии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionResultResponse'
+        '400':
+          description: Ошибка
+
+  /api/progress/:
+    get:
+      summary: Сводка прогресса пользователя
+      tags:
+        - Progress
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Сводка прогресса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressSummary'
+
+  /api/progress/dashboard:
+    get:
+      summary: Данные для дашборда
+      tags:
+        - Progress
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Полный дашборд
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardData'
+
+  /api/progress/history:
+    get:
+      summary: История прохождения миссий
+      tags:
+        - Progress
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: История миссий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryItem'
+
+  /api/leaderboard/:
+    get:
+      summary: Таблица лидеров
+      tags:
+        - Leaderboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Топ лидеров с позицией пользователя
+          content:
+            application/json:
+              $ref: '#/components/schemas/LeaderboardData'
+
+  /api/leaderboard/leagues:
+    get:
+      summary: Лиги и их участники
+      tags:
+        - Leaderboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список лиг с участниками
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeagueData'
+
+  /api/achievements/:
+    get:
+      summary: Все достижения (полученные и нет)
+      tags:
+        - Achievements
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список всех достижений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AchievementResponse'
+
+  /api/achievements/my:
+    get:
+      summary: Мои полученные достижения
+      tags:
+        - Achievements
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список полученных достижений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserAchievementResponse'
+
+  /api/learning/themes:
+    get:
+      summary: Список тем обучения
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Темы обучения
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LearningTheme'
+
+  /api/learning/modules:
+    get:
+      summary: Все обучающие модули
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список модулей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    scenario_id:
+                      type: integer
+                    theme:
+                      type: string
+                    title:
+                      type: string
+
+  /api/learning/modules/{scenario_id}:
+    get:
+      summary: Детали обучающего модуля
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: scenario_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Полный модуль с теорией, сценарием и разбором
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningModule'
+        '404':
+          description: Модуль не найден
+
+  /api/learning/themes/{theme_id}/modules:
+    get:
+      summary: Модули по теме
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: theme_id
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [phishing, skimming, password, social]
+      responses:
+        '200':
+          description: Модули темы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LearningModule'
+        '404':
+          description: Тема не найдена
+
+  /api/learning/submit:
+    post:
+      summary: Отправка ответа в обучающем модуле
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitLearningAnswer'
+      responses:
+        '200':
+          description: Результат ответа с обновлёнными статами
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningSubmitResult'
+
+  /api/learning/dashboard:
+    get:
+      summary: Дашборд обучения
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Полный дашборд обучения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningDashboard'
+
+  /api/learning/activity:
+    get:
+      summary: Активность за последние 140 дней
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Активность по дням
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    count:
+                      type: integer
+
+  /api/learning/stats:
+    get:
+      summary: Статистика обучения
+      tags:
+        - Learning
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Статистика пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningStats'
+
+  /ws/game/{mission_id}:
+    get:
+      summary: WebSocket для игрового таймера
+      tags:
+        - WebSocket
+      parameters:
+        - name: mission_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '101':
+          description: Переключение на WebSocket
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token. Получите через POST /api/auth/login или POST /api/auth/register.
+
+  schemas:
+    UserCreate:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: cyber_hero
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: user@example.com
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          format: password
+          example: securepass123
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: securepass123
+
+    UserUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+          maxLength: 100
+          example: Cyber Hero
+        avatar_url:
+          type: string
+          nullable: true
+          maxLength: 500
+          example: https://example.com/avatar.png
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        security_level:
+          type: integer
+          description: Уровень безопасности (0-100)
+        total_xp:
+          type: integer
+          description: Общий опыт
+        current_league:
+          type: string
+          description: Текущая лига
+          enum: [newbie, rookie, defender, guardian, elite, master]
+        created_at:
+          type: string
+          format: date-time
+
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (30 мин)
+        refresh_token:
+          type: string
+          description: JWT refresh token (7 дней)
+        token_type:
+          type: string
+          default: bearer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    TokenRefresh:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    HTTPError:
+      type: object
+      properties:
+        detail:
+          type: string
+
+    ScenarioListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        difficulty:
+          type: integer
+          minimum: 1
+          maximum: 5
+        order_index:
+          type: integer
+        is_active:
+          type: boolean
+        missions_count:
+          type: integer
+        completed_count:
+          type: integer
+
+    ScenarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        difficulty:
+          type: integer
+        order_index:
+          type: integer
+        is_active:
+          type: boolean
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionListItem'
+
+    MissionListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        attack_type:
+          type: string
+          description: Тип атаки (phishing, skimming, password, social)
+        environment:
+          type: string
+          description: Среда (email, browser, mobile, etc.)
+        difficulty:
+          type: integer
+        xp_reward:
+          type: integer
+        order_index:
+          type: integer
+        time_limit_seconds:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [not_started, in_progress, completed]
+
+    MissionDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        story_text:
+          type: string
+          nullable: true
+        attack_type:
+          type: string
+        environment:
+          type: string
+        difficulty:
+          type: integer
+        xp_reward:
+          type: integer
+        time_limit_seconds:
+          type: integer
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionStepResponse'
+
+    MissionStepResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        step_order:
+          type: integer
+        context_text:
+          type: string
+          description: Текст контекста/ситуации
+        context_type:
+          type: string
+          description: Тип контекста (story, email, message, etc.)
+        context_data:
+          type: object
+          nullable: true
+          description: Дополнительные данные контекста
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/StepChoiceResponse'
+
+    StepChoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        choice_text:
+          type: string
+        order_index:
+          type: integer
+
+    MissionStartResponse:
+      type: object
+      properties:
+        mission:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            slug:
+              type: string
+            title:
+              type: string
+            story_text:
+              type: string
+              nullable: true
+            attack_type:
+              type: string
+            environment:
+              type: string
+            xp_reward:
+              type: integer
+            time_limit_seconds:
+              type: integer
+              nullable: true
+        first_step:
+          $ref: '#/components/schemas/MissionStepResponse'
+          nullable: true
+        current_hp:
+          type: integer
+          default: 100
+        current_step:
+          type: integer
+          default: 0
+
+    AnswerRequest:
+      type: object
+      required:
+        - step_id
+        - choice_id
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        choice_id:
+          type: string
+          format: uuid
+
+    AnswerResponse:
+      type: object
+      properties:
+        is_correct:
+          type: boolean
+        feedback_text:
+          type: string
+          description: Обратная связь по ответу
+        consequence_text:
+          type: string
+          nullable: true
+          description: Описание последствий выбора
+        hp_change:
+          type: integer
+          description: Изменение HP
+        current_hp:
+          type: integer
+        next_step:
+          $ref: '#/components/schemas/MissionStepResponse'
+          nullable: true
+        mission_completed:
+          type: boolean
+        new_achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AchievementNotification'
+
+    MissionResultResponse:
+      type: object
+      properties:
+        xp_earned:
+          type: integer
+        correct_answers:
+          type: integer
+        wrong_answers:
+          type: integer
+        total_steps:
+          type: integer
+        accuracy_percent:
+          type: number
+          format: float
+        new_achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AchievementNotification'
+        league_changed:
+          type: boolean
+        new_league:
+          type: string
+          nullable: true
+
+    ProgressSummary:
+      type: object
+      properties:
+        total_missions:
+          type: integer
+        completed_missions:
+          type: integer
+        total_xp:
+          type: integer
+        security_level:
+          type: integer
+        accuracy_percent:
+          type: number
+          format: float
+        total_errors:
+          type: integer
+
+    DashboardData:
+      type: object
+      properties:
+        user_stats:
+          $ref: '#/components/schemas/ProgressSummary'
+        recent_achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AchievementNotification'
+        scenario_progress:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              title:
+                type: string
+              icon:
+                type: string
+              total:
+                type: integer
+              completed:
+                type: integer
+        attack_type_stats:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              total:
+                type: integer
+              completed:
+                type: integer
+
+    HistoryItem:
+      type: object
+      properties:
+        mission_id:
+          type: string
+          format: uuid
+        mission_title:
+          type: string
+        scenario_title:
+          type: string
+        status:
+          type: string
+        xp_earned:
+          type: integer
+        correct_answers:
+          type: integer
+        wrong_answers:
+          type: integer
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LeaderboardData:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+        user_position:
+          type: integer
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        position:
+          type: integer
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        total_xp:
+          type: integer
+        missions_completed:
+          type: integer
+        accuracy_percent:
+          type: number
+          format: float
+        league:
+          type: string
+
+    LeagueData:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        xp_min:
+          type: integer
+        xp_max:
+          type: integer
+          nullable: true
+        members_count:
+          type: integer
+        top_members:
+          type: array
+          items:
+            type: object
+            properties:
+              username:
+                type: string
+              display_name:
+                type: string
+              total_xp:
+                type: integer
+              avatar_url:
+                type: string
+                nullable: true
+
+    AchievementResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        condition_type:
+          type: string
+        condition_value:
+          type: integer
+        xp_bonus:
+          type: integer
+        rarity:
+          type: string
+          enum: [common, uncommon, rare, epic, legendary]
+        earned:
+          type: boolean
+        earned_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UserAchievementResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        achievement_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        rarity:
+          type: string
+        xp_bonus:
+          type: integer
+        earned_at:
+          type: string
+          format: date-time
+
+    AchievementNotification:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        rarity:
+          type: string
+        xp_bonus:
+          type: integer
+        earned_at:
+          type: string
+          format: date-time
+
+    LearningTheme:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [phishing, skimming, password, social]
+        name:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        scenarios_count:
+          type: integer
+
+    LearningModule:
+      type: object
+      properties:
+        scenario_id:
+          type: integer
+        theme:
+          type: string
+        title:
+          type: string
+        stage1_theory:
+          type: object
+          properties:
+            definition:
+              type: string
+            stats:
+              type: array
+              items:
+                type: object
+                properties:
+                  value:
+                    type: string
+                  label:
+                    type: string
+            attack_steps:
+              type: array
+              items:
+                type: string
+            variants_table:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  description:
+                    type: string
+                  example:
+                    type: string
+            red_flags:
+              type: array
+              items:
+                type: string
+            protection_levels:
+              type: array
+              items:
+                type: object
+                properties:
+                  level:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: string
+        stage2_scenario:
+          type: object
+          properties:
+            intro:
+              type: string
+            visual:
+              type: string
+            visual_hint:
+              type: string
+            question:
+              type: string
+            choices:
+              type: array
+              items:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  correct:
+                    type: boolean
+                  hint:
+                    type: string
+        stage3_wrong_answer_debrief:
+          type: object
+          properties:
+            outcome_title:
+              type: string
+            timeline:
+              type: array
+              items:
+                type: string
+            why_it_happened:
+              type: array
+              items:
+                type: string
+            theory_link:
+              type: string
+            ignored_red_flags:
+              type: array
+              items:
+                type: string
+            correct_choices_with_hints:
+              type: array
+              items:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  hint:
+                    type: string
+            action_tips:
+              type: array
+              items:
+                type: string
+            mnemonic:
+              type: string
+
+    SubmitLearningAnswer:
+      type: object
+      required:
+        - scenario_id
+        - choice_index
+        - is_correct
+      properties:
+        scenario_id:
+          type: integer
+        choice_index:
+          type: integer
+        is_correct:
+          type: boolean
+
+    LearningSubmitResult:
+      type: object
+      properties:
+        security_level:
+          type: integer
+        total_xp:
+          type: integer
+        current_league:
+          type: string
+        change:
+          type: integer
+          description: +5 за правильный, -10 за неправильный
+        is_correct:
+          type: boolean
+        new_achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AchievementNotification'
+
+    LearningDashboard:
+      type: object
+      properties:
+        user_stats:
+          type: object
+          properties:
+            total_modules:
+              type: integer
+            completed_modules:
+              type: integer
+            correct_answers:
+              type: integer
+            wrong_answers:
+              type: integer
+            accuracy_percent:
+              type: number
+              format: float
+            security_level:
+              type: integer
+            total_xp:
+              type: integer
+            current_league:
+              type: string
+        theme_progress:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              icon:
+                type: string
+              total:
+                type: integer
+              completed:
+                type: integer
+              correct:
+                type: integer
+        recent_history:
+          type: array
+          items:
+            type: object
+            properties:
+              scenario_id:
+                type: integer
+              title:
+                type: string
+              theme:
+                type: string
+              is_correct:
+                type: boolean
+              completed_at:
+                type: string
+                format: date-time
+
+    LearningStats:
+      type: object
+      properties:
+        security_level:
+          type: integer
+        total_xp:
+          type: integer
+        current_league:
+          type: string
